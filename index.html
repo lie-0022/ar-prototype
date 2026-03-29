@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AR 컵 높이 측정 프로토타입</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  /* Start screen */
+  #startScreen {
+    position: fixed;
+    inset: 0;
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    z-index: 100;
+  }
+  #startScreen h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+  #startScreen .subtitle { font-size: 14px; color: #888; margin-bottom: 40px; text-align: center; line-height: 1.6; }
+  #startScreen .step-list { width: 100%; max-width: 320px; margin-bottom: 40px; }
+  .step-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 0; border-bottom: 1px solid #222;
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #333; color: #fff; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step-text { font-size: 14px; color: #ccc; line-height: 1.5; }
+  .step-text strong { color: #fff; }
+
+  #startBtn {
+    padding: 16px 48px; border-radius: 14px;
+    background: #fff; color: #111; font-size: 16px; font-weight: 700;
+    border: none; cursor: pointer;
+  }
+  #startBtn:disabled { opacity: 0.3; }
+
+  #errorMsg {
+    margin-top: 16px; font-size: 13px; color: #e74c3c;
+    text-align: center; display: none; line-height: 1.5;
+  }
+
+  /* AR overlay UI */
+  #arUI {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 10;
+  }
+
+  /* Crosshair */
+  #crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px; height: 40px;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: #fff;
+    border-radius: 1px;
+  }
+  #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+  #crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+  .crosshair-dot {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px; height: 8px; border-radius: 50%; background: #fff;
+  }
+
+  /* Status bar */
+  #statusBar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 52px 20px 16px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  }
+  #statusText { font-size: 15px; font-weight: 600; text-align: center; }
+  #statusSub { font-size: 12px; color: #aaa; text-align: center; margin-top: 4px; }
+
+  /* Bottom panel */
+  #bottomPanel {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 20px 20px 40px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  }
+
+  /* Measurement display */
+  #measureDisplay {
+    text-align: center; margin-bottom: 16px; display: none;
+  }
+  #measureDisplay .label { font-size: 12px; color: #aaa; }
+  #measureDisplay .value { font-size: 48px; font-weight: 800; margin: 4px 0; }
+  #measureDisplay .unit { font-size: 16px; font-weight: 400; color: #aaa; }
+
+  /* Action buttons */
+  #actionBtns { display: flex; gap: 12px; justify-content: center; }
+  .action-btn {
+    padding: 14px 28px; border-radius: 14px;
+    font-size: 15px; font-weight: 700; border: none; cursor: pointer;
+    pointer-events: auto;
+  }
+  .btn-primary { background: #fff; color: #111; }
+  .btn-secondary { background: rgba(255,255,255,0.15); color: #fff; }
+  .btn-primary:disabled { opacity: 0.3; }
+
+  /* Point markers */
+  .point-marker {
+    position: absolute; pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
+  .point-marker .ring {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 2.5px solid #00e676;
+    animation: pointPulse 1.5s infinite;
+  }
+  .point-marker .label {
+    position: absolute; top: 30px; left: 50%;
+    transform: translateX(-50%); white-space: nowrap;
+    font-size: 11px; font-weight: 600; background: rgba(0,0,0,0.7);
+    padding: 3px 8px; border-radius: 6px; color: #00e676;
+  }
+  @keyframes pointPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.2); }
+  }
+
+  /* Height line */
+  #heightLine {
+    position: absolute; display: none;
+    width: 2px; background: #00e676;
+    left: 50%; transform: translateX(-50%);
+  }
+  #heightLabel {
+    position: absolute; display: none;
+    left: calc(50% + 20px);
+    transform: translateY(-50%);
+    font-size: 14px; font-weight: 700; color: #00e676;
+    background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  /* Plane indicator */
+  #planeIndicator {
+    position: absolute; top: 100px; left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    padding: 8px 16px; border-radius: 20px;
+    background: rgba(0,200,100,0.2); border: 1px solid rgba(0,200,100,0.5);
+    font-size: 12px; color: #00e676; font-weight: 600;
+  }
+
+  /* Volume input overlay */
+  #volumeOverlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none; z-index: 50;
+    flex-direction: column; align-items: center;
+    justify-content: center; padding: 32px;
+  }
+  #volumeOverlay.show { display: flex; }
+  #volumeOverlay h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+  #volumeOverlay .desc { font-size: 13px; color: #888; text-align: center; margin-bottom: 32px; line-height: 1.6; }
+  .volume-options { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 24px; }
+  .vol-chip {
+    padding: 12px 20px; border-radius: 12px;
+    background: rgba(255,255,255,0.1); border: 1.5px solid #444;
+    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+    pointer-events: auto;
+  }
+  .vol-chip.active { background: #fff; color: #111; border-color: #fff; }
+  .vol-custom {
+    width: 200px; padding: 14px 16px; border-radius: 12px;
+    background: rgba(255,255,255,0.1); border: 1.5px solid #444;
+    color: #fff; font-size: 16px; text-align: center;
+    outline: none; pointer-events: auto;
+  }
+  .vol-custom:focus { border-color: #fff; }
+  #volumeConfirmBtn {
+    margin-top: 20px; padding: 14px 48px; border-radius: 14px;
+    background: #fff; color: #111; font-size: 16px; font-weight: 700;
+    border: none; cursor: pointer; pointer-events: auto;
+  }
+
+  /* Result screen */
+  #resultOverlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: none; z-index: 50;
+    flex-direction: column; align-items: center;
+    justify-content: center; padding: 32px;
+  }
+  #resultOverlay.show { display: flex; }
+  #resultOverlay h2 { font-size: 20px; font-weight: 800; margin-bottom: 24px; }
+  .result-grid { width: 100%; max-width: 300px; }
+  .result-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid #333;
+  }
+  .result-item .rlabel { font-size: 14px; color: #888; }
+  .result-item .rvalue { font-size: 18px; font-weight: 700; }
+  .result-note {
+    font-size: 12px; color: #666; text-align: center;
+    margin-top: 24px; line-height: 1.6;
+  }
+  #retryBtn {
+    margin-top: 32px; padding: 14px 48px; border-radius: 14px;
+    background: #fff; color: #111; font-size: 16px; font-weight: 700;
+    border: none; cursor: pointer; pointer-events: auto;
+  }
+
+  /* Fallback screen (non-AR) */
+  #fallbackScreen {
+    position: fixed; inset: 0; background: #111;
+    display: none; z-index: 100;
+    flex-direction: column; align-items: center;
+    justify-content: center; padding: 32px;
+  }
+  #fallbackScreen.show { display: flex; }
+  #fallbackScreen h2 { font-size: 20px; font-weight: 800; margin-bottom: 12px; }
+  #fallbackScreen .desc { font-size: 14px; color: #888; text-align: center; margin-bottom: 32px; line-height: 1.6; }
+
+  /* Simulation mode */
+  #simCanvas {
+    position: fixed; inset: 0; z-index: 1;
+    display: none; background: #1a1a2e;
+  }
+</style>
+</head>
+<body>
+
+<!-- Start Screen -->
+<div id="startScreen">
+  <h1>AR 컵 높이 측정</h1>
+  <p class="subtitle">카메라로 컵의 높이를 측정하고<br>칵테일 레시피 라인을 표시합니다</p>
+  <div class="step-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text"><strong>평면 인식</strong> — 테이블 위를 비추면 바닥면을 자동 인식합니다</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text"><strong>바닥 점 찍기</strong> — 컵이 놓인 테이블 바닥면을 탭합니다</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text"><strong>윗부분 찍기</strong> — 컵의 가장 윗부분(림)을 탭합니다</div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-text"><strong>결과 확인</strong> — 높이가 계산되고 용량을 입력하면 레시피 라인이 표시됩니다</div>
+    </div>
+  </div>
+  <button id="startBtn" onclick="startAR()">AR 시작하기</button>
+  <button id="simBtn" style="display:none; margin-top:12px; padding:12px 36px; border-radius:12px; background:rgba(255,255,255,0.1); color:#aaa; font-size:14px; font-weight:600; border:1px solid #333; cursor:pointer;" onclick="startSimulation()">시뮬레이션 모드 (데스크톱)</button>
+  <div id="errorMsg"></div>
+  <div id="envInfo" style="margin-top:16px; font-size:11px; color:#444; text-align:center; line-height:1.6;"></div>
+</div>
+
+<!-- AR Overlay UI -->
+<div id="arUI" style="display:none;">
+  <div id="statusBar">
+    <div id="statusText">테이블 위를 비춰주세요</div>
+    <div id="statusSub">평면을 인식하고 있습니다...</div>
+  </div>
+
+  <div id="crosshair">
+    <div class="crosshair-dot"></div>
+  </div>
+
+  <div id="planeIndicator">✓ 평면 인식됨</div>
+
+  <div id="heightLine"></div>
+  <div id="heightLabel"></div>
+
+  <div id="bottomPanel">
+    <div id="measureDisplay">
+      <div class="label">측정된 높이</div>
+      <div class="value"><span id="heightValue">0.0</span><span class="unit"> cm</span></div>
+    </div>
+    <div id="actionBtns">
+      <button class="action-btn btn-primary" id="tapBtn" disabled onclick="handleTap()">바닥 점 찍기</button>
+      <button class="action-btn btn-secondary" id="resetBtn" style="display:none;" onclick="resetMeasure()">다시 측정</button>
+    </div>
+  </div>
+</div>
+
+<!-- Volume Input Overlay -->
+<div id="volumeOverlay">
+  <h2>컵 용량을 알려주세요</h2>
+  <p class="desc">대략적인 용량을 선택하거나 직접 입력해주세요.<br>높이와 용량으로 레시피 라인을 계산합니다.</p>
+  <div class="volume-options">
+    <div class="vol-chip" onclick="selectVolume(this, 200)">200ml</div>
+    <div class="vol-chip" onclick="selectVolume(this, 300)">300ml</div>
+    <div class="vol-chip" onclick="selectVolume(this, 350)">350ml</div>
+    <div class="vol-chip" onclick="selectVolume(this, 400)">400ml</div>
+    <div class="vol-chip" onclick="selectVolume(this, 500)">500ml</div>
+  </div>
+  <input class="vol-custom" type="number" id="volCustom" placeholder="직접 입력 (ml)" oninput="customVolume(this)">
+  <button id="volumeConfirmBtn" onclick="confirmVolume()">레시피 라인 보기</button>
+</div>
+
+<!-- Result Overlay -->
+<div id="resultOverlay">
+  <h2>측정 결과</h2>
+  <div class="result-grid">
+    <div class="result-item">
+      <span class="rlabel">컵 높이</span>
+      <span class="rvalue" id="resultHeight">—</span>
+    </div>
+    <div class="result-item">
+      <span class="rlabel">입력 용량</span>
+      <span class="rvalue" id="resultVolume">—</span>
+    </div>
+    <div class="result-item">
+      <span class="rlabel">추정 지름</span>
+      <span class="rvalue" id="resultDiameter">—</span>
+    </div>
+  </div>
+  <p class="result-note">
+    이 데이터를 기반으로 레시피 비율에 맞는<br>
+    가이드 라인을 화면에 표시할 수 있습니다.
+  </p>
+  <button id="retryBtn" onclick="resetAll()">다시 측정하기</button>
+</div>
+
+<!-- Fallback (no AR) -->
+<div id="fallbackScreen">
+  <h2>AR을 사용할 수 없습니다</h2>
+  <p class="desc">이 기기는 WebXR을 지원하지 않습니다.<br>ARCore 지원 Android + Chrome에서 실행해주세요.</p>
+</div>
+
+<script>
+  // ===== State =====
+  let xrSession = null;
+  let xrRefSpace = null;
+  let xrHitTestSource = null;
+  let gl = null;
+  let renderer = null;
+
+  let state = 'waiting_plane';  // waiting_plane → plane_found → tap_base → tap_top → done
+  let basePoint = null;   // {x, y, z} in world coords
+  let topPoint = null;
+  let measuredHeight = 0;
+  let selectedVolume = 0;
+
+  // For simulation mode
+  let simMode = false;
+  let simPlaneY = 0;
+
+  // ===== Init =====
+  window.addEventListener('DOMContentLoaded', async () => {
+    // Show environment info for debugging
+    const envInfo = document.getElementById('envInfo');
+    const isSecure = window.isSecureContext;
+    const protocol = location.protocol;
+    const ua = navigator.userAgent;
+    const isAndroid = /android/i.test(ua);
+    const isChrome = /chrome/i.test(ua) && !/edge/i.test(ua);
+    envInfo.innerHTML = `Protocol: ${protocol} | Secure: ${isSecure} | Android: ${isAndroid} | Chrome: ${isChrome}`;
+
+    // WebXR requires secure context (HTTPS or localhost)
+    if (!window.isSecureContext) {
+      showNoAR('HTTPS가 필요합니다. 현재 ' + protocol + ' 환경이에요.\n아래 방법으로 HTTPS 서버를 실행해주세요.');
+      return;
+    }
+
+    if (navigator.xr) {
+      try {
+        const supported = await navigator.xr.isSessionSupported('immersive-ar');
+        if (supported) {
+          document.getElementById('startBtn').disabled = false;
+        } else {
+          showNoAR('이 기기에서 immersive-ar을 지원하지 않습니다.\nARCore 지원 기기 + Chrome 확인이 필요해요.');
+        }
+      } catch (e) {
+        showNoAR('WebXR 지원 확인 중 오류: ' + e.message);
+      }
+    } else {
+      showNoAR('navigator.xr을 찾을 수 없습니다.\nChrome 최신 버전인지 확인해주세요.');
+    }
+  });
+
+  function showNoAR(reason) {
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('simBtn').style.display = 'inline-block';
+    document.getElementById('errorMsg').style.display = 'block';
+    document.getElementById('errorMsg').innerHTML = reason
+      ? reason.replace(/\n/g, '<br>')
+      : 'WebXR을 지원하지 않는 환경입니다.';
+  }
+
+  // ===== Start AR =====
+  async function startAR() {
+    try {
+      // Try with local-floor first, fall back to local
+      let features = ['hit-test'];
+      let optFeatures = ['dom-overlay', 'local-floor'];
+
+      xrSession = await navigator.xr.requestSession('immersive-ar', {
+        requiredFeatures: features,
+        optionalFeatures: optFeatures,
+        domOverlay: { root: document.getElementById('arUI') }
+      });
+
+      document.getElementById('startScreen').style.display = 'none';
+      document.getElementById('arUI').style.display = 'block';
+
+      // Setup WebGL
+      const canvas = document.createElement('canvas');
+      document.body.appendChild(canvas);
+      gl = canvas.getContext('webgl', { xrCompatible: true });
+      await xrSession.updateRenderState({ baseLayer: new XRWebGLLayer(xrSession, gl) });
+
+      // Try local-floor, fall back to local
+      try {
+        xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
+      } catch (e) {
+        console.warn('local-floor not available, falling back to local');
+        xrRefSpace = await xrSession.requestReferenceSpace('local');
+      }
+
+      // Hit test source (center of screen)
+      const viewerSpace = await xrSession.requestReferenceSpace('viewer');
+      xrHitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+
+      // Handle select (tap)
+      xrSession.addEventListener('select', onSelect);
+
+      // Start render loop
+      xrSession.requestAnimationFrame(onXRFrame);
+
+    } catch (err) {
+      document.getElementById('errorMsg').style.display = 'block';
+      document.getElementById('errorMsg').innerHTML =
+        'AR 세션 시작 실패: ' + err.message + '<br><br>' +
+        '<span style="font-size:12px; color:#888;">' +
+        '확인사항:<br>' +
+        '1. HTTPS로 접속했는지 (file:// 안됨)<br>' +
+        '2. Chrome 브라우저인지<br>' +
+        '3. ARCore 앱이 설치되어 있는지<br>' +
+        '4. 카메라 권한을 허용했는지</span>';
+      document.getElementById('startScreen').style.display = 'flex';
+    }
+  }
+
+  // ===== XR Frame Loop =====
+  let planeDetected = false;
+  let lastHitPose = null;
+
+  function onXRFrame(time, frame) {
+    const session = frame.session;
+    session.requestAnimationFrame(onXRFrame);
+
+    const pose = frame.getViewerPose(xrRefSpace);
+    if (!pose) return;
+
+    // Check hit test results
+    if (xrHitTestSource) {
+      const hitResults = frame.getHitTestResults(xrHitTestSource);
+      if (hitResults.length > 0) {
+        const hit = hitResults[0];
+        lastHitPose = hit.getPose(xrRefSpace);
+
+        if (!planeDetected) {
+          planeDetected = true;
+          state = 'tap_base';
+          document.getElementById('planeIndicator').style.display = 'block';
+          document.getElementById('statusText').textContent = '평면 인식 완료!';
+          document.getElementById('statusSub').textContent = '컵이 놓인 바닥면을 탭하세요';
+          document.getElementById('tapBtn').disabled = false;
+          document.getElementById('tapBtn').textContent = '바닥 점 찍기';
+        }
+      }
+    }
+
+    // Render (minimal - just clear)
+    const glLayer = session.renderState.baseLayer;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  }
+
+  // ===== Select Handler =====
+  function onSelect(event) {
+    handleTap();
+  }
+
+  function handleTap() {
+    if (!lastHitPose && !simMode) return;
+
+    if (state === 'tap_base') {
+      if (simMode) {
+        basePoint = { x: 0, y: 0, z: -0.5 };
+      } else {
+        const m = lastHitPose.transform.position;
+        basePoint = { x: m.x, y: m.y, z: m.z };
+      }
+
+      // Show marker at center
+      addPointMarker('base', '바닥');
+
+      state = 'tap_top';
+      document.getElementById('statusText').textContent = '바닥 점 설정 완료!';
+      document.getElementById('statusSub').textContent = '이제 컵의 가장 윗부분(림)을 탭하세요';
+      document.getElementById('tapBtn').textContent = '윗부분 찍기';
+
+    } else if (state === 'tap_top') {
+      if (simMode) {
+        // Simulate: random height between 8-15cm
+        const simHeight = 8 + Math.random() * 7;
+        topPoint = { x: 0, y: simHeight / 100, z: -0.5 };
+        measuredHeight = simHeight;
+      } else {
+        const m = lastHitPose.transform.position;
+        topPoint = { x: m.x, y: m.y, z: m.z };
+        // Calculate height (Y-axis difference in meters → cm)
+        measuredHeight = Math.abs(topPoint.y - basePoint.y) * 100;
+      }
+
+      addPointMarker('top', '윗부분');
+      showHeight();
+    }
+  }
+
+  // ===== UI Helpers =====
+  function addPointMarker(id, label) {
+    // Remove existing
+    const existing = document.getElementById('marker-' + id);
+    if (existing) existing.remove();
+
+    const marker = document.createElement('div');
+    marker.className = 'point-marker';
+    marker.id = 'marker-' + id;
+    marker.innerHTML = `<div class="ring"></div><div class="label">${label}</div>`;
+
+    // Position at center of screen
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    marker.style.left = cx + 'px';
+    marker.style.top = cy + (id === 'base' ? 60 : -60) + 'px';
+
+    document.getElementById('arUI').appendChild(marker);
+  }
+
+  function showHeight() {
+    state = 'done';
+
+    document.getElementById('statusText').textContent = '측정 완료!';
+    document.getElementById('statusSub').textContent = '';
+
+    // Show height line
+    const line = document.getElementById('heightLine');
+    const label = document.getElementById('heightLabel');
+    const baseMarker = document.getElementById('marker-base');
+    const topMarker = document.getElementById('marker-top');
+
+    if (baseMarker && topMarker) {
+      const baseY = parseInt(baseMarker.style.top);
+      const topY = parseInt(topMarker.style.top);
+      line.style.top = topY + 'px';
+      line.style.height = (baseY - topY) + 'px';
+      line.style.display = 'block';
+
+      label.style.top = ((baseY + topY) / 2) + 'px';
+      label.textContent = measuredHeight.toFixed(1) + ' cm';
+      label.style.display = 'block';
+    }
+
+    // Show measurement
+    document.getElementById('measureDisplay').style.display = 'block';
+    document.getElementById('heightValue').textContent = measuredHeight.toFixed(1);
+
+    // Update buttons
+    document.getElementById('tapBtn').textContent = '용량 입력하기';
+    document.getElementById('tapBtn').onclick = () => showVolumeInput();
+    document.getElementById('tapBtn').disabled = false;
+    document.getElementById('resetBtn').style.display = 'inline-block';
+  }
+
+  function showVolumeInput() {
+    document.getElementById('volumeOverlay').classList.add('show');
+  }
+
+  function selectVolume(el, ml) {
+    document.querySelectorAll('.vol-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    selectedVolume = ml;
+    document.getElementById('volCustom').value = '';
+  }
+
+  function customVolume(el) {
+    document.querySelectorAll('.vol-chip').forEach(c => c.classList.remove('active'));
+    selectedVolume = parseInt(el.value) || 0;
+  }
+
+  function confirmVolume() {
+    if (selectedVolume <= 0) return;
+
+    document.getElementById('volumeOverlay').classList.remove('show');
+
+    // Calculate estimated diameter from height + volume
+    // V = π * r² * h (approximating as cylinder)
+    // r = sqrt(V / (π * h))
+    const heightCm = measuredHeight;
+    const volumeMl = selectedVolume; // 1ml = 1cm³
+    const r = Math.sqrt(volumeMl / (Math.PI * heightCm));
+    const diameter = r * 2;
+
+    // Show results
+    document.getElementById('resultHeight').textContent = heightCm.toFixed(1) + ' cm';
+    document.getElementById('resultVolume').textContent = volumeMl + ' ml';
+    document.getElementById('resultDiameter').textContent = diameter.toFixed(1) + ' cm (추정)';
+    document.getElementById('resultOverlay').classList.add('show');
+  }
+
+  function resetMeasure() {
+    // Remove markers
+    ['marker-base', 'marker-top'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
+
+    basePoint = null;
+    topPoint = null;
+    measuredHeight = 0;
+    state = 'tap_base';
+
+    document.getElementById('heightLine').style.display = 'none';
+    document.getElementById('heightLabel').style.display = 'none';
+    document.getElementById('measureDisplay').style.display = 'none';
+    document.getElementById('resetBtn').style.display = 'none';
+    document.getElementById('tapBtn').textContent = '바닥 점 찍기';
+    document.getElementById('tapBtn').onclick = () => handleTap();
+    document.getElementById('statusText').textContent = '다시 측정합니다';
+    document.getElementById('statusSub').textContent = '컵이 놓인 바닥면을 탭하세요';
+  }
+
+  function resetAll() {
+    document.getElementById('resultOverlay').classList.remove('show');
+    document.getElementById('volumeOverlay').classList.remove('show');
+    resetMeasure();
+  }
+
+  // ===== Simulation Mode (for desktop testing) =====
+  function startSimulation() {
+    simMode = true;
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('arUI').style.display = 'block';
+
+    // Show simulated camera bg
+    const simBg = document.getElementById('simCanvas');
+    simBg.style.display = 'block';
+
+    // Draw simulated scene
+    const canvas = simBg;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+
+    // Table surface
+    ctx.fillStyle = '#2a2a3e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#3a3a5e';
+    ctx.fillRect(0, canvas.height * 0.55, canvas.width, canvas.height * 0.45);
+
+    // Grid lines on table
+    ctx.strokeStyle = '#4a4a6e';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 20; i++) {
+      const y = canvas.height * 0.55 + i * 25;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+
+    // Cup silhouette
+    const cx = canvas.width / 2;
+    const cupBottom = canvas.height * 0.7;
+    const cupTop = canvas.height * 0.35;
+    ctx.strokeStyle = '#8888aa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 30, cupBottom);
+    ctx.lineTo(cx - 40, cupTop);
+    ctx.lineTo(cx + 40, cupTop);
+    ctx.lineTo(cx + 30, cupBottom);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(100,100,180,0.1)';
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = '#666';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('시뮬레이션 모드 — 실제 AR은 Android Chrome에서 실행하세요', cx, 30);
+
+    // Simulate plane detection after delay
+    setTimeout(() => {
+      planeDetected = true;
+      state = 'tap_base';
+      document.getElementById('planeIndicator').style.display = 'block';
+      document.getElementById('statusText').textContent = '평면 인식 완료! (시뮬레이션)';
+      document.getElementById('statusSub').textContent = '컵이 놓인 바닥면을 탭하세요';
+      document.getElementById('tapBtn').disabled = false;
+    }, 1500);
+  }
+</script>
+
+<canvas id="simCanvas"></canvas>
+
+</body>
+</html>
