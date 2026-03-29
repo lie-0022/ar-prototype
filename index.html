@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>나만의 버틀러 — 재고관리 와이어프레임</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 20px 0;
+  }
+
+  /* Phone frame */
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    background: #f5f5f5;
+    border-radius: 40px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 8px #333, 0 0 0 10px #666;
+  }
+
+  /* Screen container */
+  .screen {
+    display: none;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    background: #f5f5f5;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .screen.active { display: flex; }
+
+  /* Status bar */
+  .status-bar {
+    height: 50px;
+    background: #fff;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 24px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .status-bar .time { font-size: 15px; font-weight: 700; }
+  .status-icons { display: flex; gap: 4px; align-items: center; }
+  .status-icons span { font-size: 12px; }
+
+  /* Navigation header */
+  .nav-header {
+    height: 48px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid #e5e5e5;
+    flex-shrink: 0;
+  }
+  .nav-header h1 { font-size: 18px; font-weight: 700; color: #1a1a1a; }
+  .nav-back {
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+  }
+  .nav-right {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Scrollable content */
+  .scroll-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 80px;
+  }
+
+  /* ========== SCREEN 1: My Bar Main ========== */
+
+  /* Insight summary card */
+  .insight-card {
+    margin: 16px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1.5px solid #e0e0e0;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .insight-card:active { background: #f0f0f0; }
+  .insight-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .insight-card-header span { font-size: 13px; color: #999; }
+  .insight-card-header .arrow { font-size: 16px; color: #ccc; }
+  .insight-value { font-size: 28px; font-weight: 800; color: #1a1a1a; margin-bottom: 4px; }
+  .insight-label { font-size: 13px; color: #888; margin-bottom: 16px; }
+  .insight-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .insight-chip {
+    flex: 1;
+    padding: 12px;
+    background: #f7f7f7;
+    border-radius: 10px;
+    text-align: center;
+  }
+  .insight-chip .num { font-size: 20px; font-weight: 700; color: #1a1a1a; display: block; }
+  .insight-chip .lbl { font-size: 11px; color: #999; display: block; margin-top: 2px; }
+
+  /* Filter section */
+  .filter-section {
+    padding: 0 16px;
+    margin-bottom: 12px;
+  }
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .filter-chip {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    color: #666;
+    transition: all 0.15s;
+  }
+  .filter-chip.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+  .sort-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+    gap: 4px;
+  }
+  .sort-btn {
+    font-size: 12px;
+    color: #999;
+    cursor: pointer;
+    padding: 4px 8px;
+    border: none;
+    background: none;
+  }
+  .sort-btn.active { color: #1a1a1a; font-weight: 600; }
+
+  /* Inventory list */
+  .inventory-list { padding: 0 16px; }
+
+  .inv-card {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    background: #fff;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    border: 1.5px solid #e8e8e8;
+    cursor: pointer;
+    transition: background 0.15s;
+    gap: 14px;
+  }
+  .inv-card:active { background: #f5f5f5; }
+
+  .inv-thumb {
+    width: 50px;
+    height: 50px;
+    background: #e8e8e8;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .inv-info { flex: 1; min-width: 0; }
+  .inv-name { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 3px; }
+  .inv-meta { font-size: 12px; color: #999; }
+  .inv-meta .tag {
+    display: inline-block;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+    font-size: 11px;
+    color: #666;
+  }
+
+  .inv-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+
+  .gauge {
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+  }
+  .gauge-bar {
+    width: 6px;
+    border-radius: 2px;
+    background: #e0e0e0;
+  }
+  .gauge-bar.filled { background: #1a1a1a; }
+  .gauge-bar.warn { background: #e74c3c; }
+  .gauge-bar:nth-child(1) { height: 10px; }
+  .gauge-bar:nth-child(2) { height: 16px; }
+  .gauge-bar:nth-child(3) { height: 22px; }
+
+  .status-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .badge-unopened { background: #f0f0f0; color: #999; }
+  .badge-expiry-warn { background: #fff3e0; color: #e67e22; }
+  .badge-expiry-danger { background: #fdecea; color: #e74c3c; }
+  .open-btn-small {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1.5px solid #1a1a1a;
+    background: #fff;
+    color: #1a1a1a;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* FAB */
+  .fab {
+    position: absolute;
+    bottom: 90px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    border: none;
+    z-index: 10;
+  }
+  .fab:active { transform: scale(0.95); }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background: #fff;
+    border-top: 1px solid #e5e5e5;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-around;
+    padding-top: 10px;
+    z-index: 10;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #bbb;
+    font-size: 10px;
+  }
+  .nav-item.active { color: #1a1a1a; }
+  .nav-icon { font-size: 22px; }
+
+  /* ========== SCREEN 2: Bottom Sheet (Add Method) ========== */
+  .overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 20;
+  }
+  .overlay.active { display: block; }
+
+  .bottom-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    padding: 24px;
+    z-index: 21;
+    transform: translateY(100%);
+    transition: transform 0.25s ease-out;
+  }
+  .bottom-sheet.active { transform: translateY(0); }
+
+  .sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+  .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: #1a1a1a; }
+
+  .sheet-option {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 16px;
+    background: #f7f7f7;
+    border-radius: 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all 0.15s;
+  }
+  .sheet-option:active { border-color: #1a1a1a; background: #f0f0f0; }
+  .sheet-option-icon {
+    width: 44px;
+    height: 44px;
+    background: #e8e8e8;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+  .sheet-option-text .main { font-size: 15px; font-weight: 600; color: #1a1a1a; display: block; }
+  .sheet-option-text .sub { font-size: 12px; color: #999; display: block; margin-top: 2px; }
+
+  /* ========== SCREEN 3: Registration Form ========== */
+  .form-section { padding: 20px 16px; }
+
+  .scan-result-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #f0f7f0;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1.5px solid #c8e6c9;
+  }
+  .scan-result-banner .icon { font-size: 20px; }
+  .scan-result-banner .text { font-size: 13px; color: #2e7d32; font-weight: 500; }
+
+  .not-found-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #fff8e1;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1.5px solid #ffe082;
+  }
+  .not-found-banner .icon { font-size: 20px; }
+  .not-found-banner .text { font-size: 13px; color: #f57f17; font-weight: 500; }
+
+  .form-group { margin-bottom: 20px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #666; margin-bottom: 8px; display: block; }
+  .form-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 15px;
+    background: #fff;
+    color: #1a1a1a;
+    outline: none;
+  }
+  .form-input:focus { border-color: #1a1a1a; }
+  .form-input.prefilled { background: #fafafa; }
+
+  .category-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cat-chip {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    color: #666;
+  }
+  .cat-chip.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  /* Toggle */
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 16px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1.5px solid #e8e8e8;
+    margin-bottom: 12px;
+  }
+  .toggle-label-wrap {}
+  .toggle-label { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .toggle-desc { font-size: 12px; color: #999; margin-top: 2px; }
+
+  .toggle {
+    width: 50px;
+    height: 28px;
+    border-radius: 14px;
+    background: #ddd;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    border: none;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: #1a1a1a; }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle.on::after { transform: translateX(22px); }
+
+  .save-btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  .save-btn:active { opacity: 0.8; }
+
+  /* ========== SCREEN 4: Item Detail ========== */
+  .detail-hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 20px;
+    background: #fff;
+  }
+  .detail-thumb {
+    width: 72px;
+    height: 72px;
+    background: #e8e8e8;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+  }
+  .detail-title { font-size: 22px; font-weight: 800; color: #1a1a1a; }
+  .detail-subtitle { font-size: 13px; color: #999; margin-top: 4px; }
+
+  .detail-section {
+    padding: 20px;
+  }
+  .detail-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .detail-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .info-box {
+    padding: 14px;
+    background: #fff;
+    border-radius: 12px;
+    border: 1.5px solid #e8e8e8;
+  }
+  .info-box .val { font-size: 18px; font-weight: 700; color: #1a1a1a; }
+  .info-box .lbl { font-size: 11px; color: #999; margin-top: 2px; }
+
+  /* Quantity selector */
+  .quantity-selector {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .qty-btn {
+    flex: 1;
+    padding: 16px 12px;
+    border-radius: 14px;
+    border: 2px solid #e0e0e0;
+    background: #fff;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .qty-btn.active { border-color: #1a1a1a; background: #1a1a1a; }
+  .qty-btn .icon { font-size: 24px; display: block; margin-bottom: 4px; }
+  .qty-btn .text { font-size: 12px; font-weight: 600; color: #666; }
+  .qty-btn.active .text { color: #fff; }
+
+  /* Expiry section */
+  .expiry-card {
+    padding: 16px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1.5px solid #e8e8e8;
+  }
+  .expiry-card.warn { border-color: #ffe082; background: #fffde7; }
+  .expiry-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .expiry-info .expiry-title { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .expiry-info .expiry-date { font-size: 12px; color: #999; margin-top: 2px; }
+  .expiry-countdown {
+    font-size: 20px;
+    font-weight: 800;
+    color: #e67e22;
+  }
+  .detail-open-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    border: 2px solid #1a1a1a;
+    background: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+    cursor: pointer;
+  }
+  .detail-open-btn:active { background: #1a1a1a; color: #fff; }
+
+  .delete-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: #e74c3c;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  /* ========== SCREEN 5: Insights Detail ========== */
+  .insight-detail-card {
+    margin: 16px;
+    padding: 24px 20px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1.5px solid #e8e8e8;
+  }
+  .insight-detail-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #999;
+    margin-bottom: 8px;
+  }
+  .insight-big-value {
+    font-size: 36px;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+  .insight-big-label { font-size: 13px; color: #888; }
+
+  /* Pie chart placeholder */
+  .pie-chart-placeholder {
+    width: 180px;
+    height: 180px;
+    margin: 20px auto;
+    position: relative;
+  }
+  .pie-ring {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: conic-gradient(
+      #555 0deg 108deg,
+      #999 108deg 180deg,
+      #bbb 180deg 252deg,
+      #ddd 252deg 324deg,
+      #eee 324deg 360deg
+    );
+    position: relative;
+  }
+  .pie-center {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: #fff;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .pie-center .num { font-size: 24px; font-weight: 800; color: #1a1a1a; }
+  .pie-center .lbl { font-size: 11px; color: #999; }
+
+  .legend { margin-top: 16px; }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .legend-left { display: flex; align-items: center; gap: 10px; }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+  }
+  .legend-name { font-size: 14px; color: #1a1a1a; }
+  .legend-right { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+
+  .recipe-stat-card {
+    margin: 0 16px 16px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1.5px solid #e8e8e8;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .recipe-stat-icon {
+    width: 48px;
+    height: 48px;
+    background: #f7f7f7;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  .recipe-stat-num { font-size: 24px; font-weight: 800; color: #1a1a1a; }
+  .recipe-stat-lbl { font-size: 12px; color: #999; }
+
+  /* Toast notification */
+  .toast {
+    display: none;
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 30;
+    white-space: nowrap;
+    animation: fadeInUp 0.3s ease-out;
+  }
+  .toast.show { display: block; }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* Screen label (for wireframe context) */
+  .screen-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #1a1a1a;
+    color: #fff;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px;
+    z-index: 100;
+    letter-spacing: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Annotation dots */
+  .anno {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+    display: none;
+  }
+
+  /* Wireframe guide panel */
+  .guide-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 260px;
+    background: #222;
+    border-radius: 16px;
+    padding: 20px;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.6;
+    z-index: 100;
+  }
+  .guide-panel h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #fff;
+    border-bottom: 1px solid #444;
+    padding-bottom: 8px;
+  }
+  .guide-panel .guide-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .guide-panel .guide-item:hover { color: #aaa; }
+  .guide-panel .guide-item:last-child { border-bottom: none; }
+  .guide-panel .guide-item.current { color: #fff; font-weight: 600; }
+  .guide-panel .guide-item:not(.current) { color: #666; }
+  .guide-step-num {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #444;
+    text-align: center;
+    line-height: 20px;
+    font-size: 11px;
+    margin-right: 8px;
+  }
+  .guide-item.current .guide-step-num { background: #fff; color: #1a1a1a; }
+
+  @media (max-width: 700px) {
+    .guide-panel { display: none; }
+    body { padding: 0; }
+    .phone-frame {
+      border-radius: 0;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      box-shadow: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Guide Panel -->
+<div class="guide-panel" id="guidePanel">
+  <h3>나만의 버틀러 — 재고관리</h3>
+  <div class="guide-item current" onclick="goScreen('main')">
+    <span class="guide-step-num">1</span>My Bar 메인
+  </div>
+  <div class="guide-item" onclick="showSheet()">
+    <span class="guide-step-num">2</span>등록 방식 선택
+  </div>
+  <div class="guide-item" onclick="goScreen('regScan')">
+    <span class="guide-step-num">3a</span>등록 — 라벨 인식
+  </div>
+  <div class="guide-item" onclick="goScreen('regManual')">
+    <span class="guide-step-num">3b</span>등록 — 수기 입력
+  </div>
+  <div class="guide-item" onclick="goScreen('regNotFound')">
+    <span class="guide-step-num">3c</span>등록 — 미등록 재료
+  </div>
+  <div class="guide-item" onclick="goScreen('detailOpened')">
+    <span class="guide-step-num">4a</span>상세 — 개봉 상태
+  </div>
+  <div class="guide-item" onclick="goScreen('detailUnopened')">
+    <span class="guide-step-num">4b</span>상세 — 미개봉 상태
+  </div>
+  <div class="guide-item" onclick="goScreen('insights')">
+    <span class="guide-step-num">5</span>인사이트 상세
+  </div>
+</div>
+
+<!-- Phone Frame -->
+<div class="phone-frame">
+
+  <!-- ==================== SCREEN 1: My Bar Main ==================== -->
+  <div class="screen active" id="screen-main">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <div style="width:32px"></div>
+      <h1>My Bar</h1>
+      <div class="nav-right" style="font-size:18px; cursor:pointer;" onclick="goScreen('insights')">📊</div>
+    </div>
+    <div class="scroll-content">
+      <!-- Insight Summary -->
+      <div class="insight-card" onclick="goScreen('insights')">
+        <div class="insight-card-header">
+          <span>내 바 요약</span>
+          <span class="arrow">›</span>
+        </div>
+        <div class="insight-value">₩320,000</div>
+        <div class="insight-label">현재 바에 등록된 재료의 총 가치</div>
+        <div class="insight-row">
+          <div class="insight-chip">
+            <span class="num">12</span>
+            <span class="lbl">보유 재료</span>
+          </div>
+          <div class="insight-chip">
+            <span class="num">8</span>
+            <span class="lbl">만들 수 있는 레시피</span>
+          </div>
+          <div class="insight-chip">
+            <span class="num">2</span>
+            <span class="lbl">유통기한 임박</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-section">
+        <div class="filter-row">
+          <div class="filter-chip active" onclick="activateChip(this)">전체</div>
+          <div class="filter-chip" onclick="activateChip(this)">기주 (Base)</div>
+          <div class="filter-chip" onclick="activateChip(this)">리큐르</div>
+          <div class="filter-chip" onclick="activateChip(this)">부재료</div>
+          <div class="filter-chip" onclick="activateChip(this)">시럽</div>
+        </div>
+        <div class="sort-row">
+          <button class="sort-btn active">최근등록순</button>
+          <button class="sort-btn">도수순</button>
+          <button class="sort-btn">유통기한순</button>
+        </div>
+      </div>
+
+      <!-- Inventory List -->
+      <div class="inventory-list">
+
+        <div class="inv-card" onclick="goScreen('detailOpened')">
+          <div class="inv-thumb">🥃</div>
+          <div class="inv-info">
+            <div class="inv-name">Maker's Mark</div>
+            <div class="inv-meta">
+              <span class="tag">버번</span> 45% · ₩45,000
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="gauge">
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar filled"></div>
+            </div>
+            <span style="font-size:10px; color:#999;">가득</span>
+          </div>
+        </div>
+
+        <div class="inv-card" onclick="goScreen('detailOpened')">
+          <div class="inv-thumb">🍸</div>
+          <div class="inv-info">
+            <div class="inv-name">Tanqueray No. Ten</div>
+            <div class="inv-meta">
+              <span class="tag">진</span> 47.3% · ₩55,000
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="gauge">
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar"></div>
+            </div>
+            <span style="font-size:10px; color:#999;">절반</span>
+          </div>
+        </div>
+
+        <div class="inv-card" onclick="goScreen('detailOpened')">
+          <div class="inv-thumb">🍋</div>
+          <div class="inv-info">
+            <div class="inv-name">레몬즙</div>
+            <div class="inv-meta">
+              <span class="tag">부재료</span>
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="gauge">
+              <div class="gauge-bar warn"></div>
+              <div class="gauge-bar"></div>
+              <div class="gauge-bar"></div>
+            </div>
+            <span class="status-badge badge-expiry-danger">D-2</span>
+          </div>
+        </div>
+
+        <div class="inv-card" onclick="goScreen('detailUnopened')">
+          <div class="inv-thumb">🧊</div>
+          <div class="inv-info">
+            <div class="inv-name">Cointreau</div>
+            <div class="inv-meta">
+              <span class="tag">리큐르</span> 40% · ₩38,000
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="gauge">
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar filled"></div>
+            </div>
+            <span class="status-badge badge-unopened">미개봉</span>
+          </div>
+        </div>
+
+        <div class="inv-card" onclick="goScreen('detailOpened')">
+          <div class="inv-thumb">🫙</div>
+          <div class="inv-info">
+            <div class="inv-name">Monin 바닐라 시럽</div>
+            <div class="inv-meta">
+              <span class="tag">시럽</span>
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="gauge">
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar"></div>
+            </div>
+            <span class="status-badge badge-expiry-warn">D-12</span>
+          </div>
+        </div>
+
+        <div class="inv-card" onclick="goScreen('detailOpened')">
+          <div class="inv-thumb">🍷</div>
+          <div class="inv-info">
+            <div class="inv-name">Campari</div>
+            <div class="inv-meta">
+              <span class="tag">리큐르</span> 25% · ₩32,000
+            </div>
+          </div>
+          <div class="inv-right">
+            <div class="gauge">
+              <div class="gauge-bar filled"></div>
+              <div class="gauge-bar"></div>
+              <div class="gauge-bar"></div>
+            </div>
+            <span style="font-size:10px; color:#999;">부족</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FAB -->
+    <button class="fab" onclick="showSheet()">+</button>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav">
+      <button class="nav-item active">
+        <span class="nav-icon">🏠</span>
+        My Bar
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">🍹</span>
+        레시피
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">🤖</span>
+        AR 가이드
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">👥</span>
+        커뮤니티
+      </button>
+    </div>
+
+    <!-- Bottom Sheet Overlay -->
+    <div class="overlay" id="sheetOverlay" onclick="hideSheet()"></div>
+    <div class="bottom-sheet" id="addSheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">재료 추가</div>
+      <div class="sheet-option" onclick="goScreen('regScan')">
+        <div class="sheet-option-icon">📷</div>
+        <div class="sheet-option-text">
+          <span class="main">라벨 촬영으로 등록</span>
+          <span class="sub">카메라로 촬영하면 자동으로 정보를 입력해요</span>
+        </div>
+      </div>
+      <div class="sheet-option" onclick="goScreen('regManual')">
+        <div class="sheet-option-icon">✏️</div>
+        <div class="sheet-option-text">
+          <span class="main">직접 입력</span>
+          <span class="sub">이름, 도수, 카테고리를 직접 작성해요</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 3a: Registration - Scan Result ==================== -->
+  <div class="screen" id="screen-regScan">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <button class="nav-back" onclick="goScreen('main')">←</button>
+      <h1>재료 등록</h1>
+      <div style="width:32px"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="form-section">
+        <div class="scan-result-banner">
+          <span class="icon">✅</span>
+          <span class="text">라벨 인식 완료! 아래 정보를 확인해주세요.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">이름</label>
+          <input class="form-input prefilled" type="text" value="Hendrick's Gin" readonly>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">카테고리</label>
+          <div class="category-chips">
+            <div class="cat-chip">버번</div>
+            <div class="cat-chip active">진</div>
+            <div class="cat-chip">보드카</div>
+            <div class="cat-chip">럼</div>
+            <div class="cat-chip">리큐르</div>
+            <div class="cat-chip">부재료</div>
+            <div class="cat-chip">시럽</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">도수 (%)</label>
+          <input class="form-input prefilled" type="text" value="41.4" readonly>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">구매 가격 (원)</label>
+          <input class="form-input" type="text" placeholder="선택사항" value="">
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label-wrap">
+            <div class="toggle-label">지금 개봉하셨나요?</div>
+            <div class="toggle-desc">개봉하면 유통기한을 추적해드려요</div>
+          </div>
+          <button class="toggle" onclick="this.classList.toggle('on')"></button>
+        </div>
+
+        <button class="save-btn" onclick="showToast('등록 완료! My Bar에 추가되었습니다.'); setTimeout(()=>goScreen('main'), 1200)">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 3b: Registration - Manual ==================== -->
+  <div class="screen" id="screen-regManual">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <button class="nav-back" onclick="goScreen('main')">←</button>
+      <h1>직접 입력</h1>
+      <div style="width:32px"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="form-section">
+        <div class="form-group">
+          <label class="form-label">이름</label>
+          <input class="form-input" type="text" placeholder="예: Absolut Vodka">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">카테고리</label>
+          <div class="category-chips">
+            <div class="cat-chip">버번</div>
+            <div class="cat-chip">진</div>
+            <div class="cat-chip">보드카</div>
+            <div class="cat-chip">럼</div>
+            <div class="cat-chip">리큐르</div>
+            <div class="cat-chip">부재료</div>
+            <div class="cat-chip">시럽</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">도수 (%)</label>
+          <input class="form-input" type="text" placeholder="예: 40">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">구매 가격 (원)</label>
+          <input class="form-input" type="text" placeholder="선택사항">
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label-wrap">
+            <div class="toggle-label">지금 개봉하셨나요?</div>
+            <div class="toggle-desc">개봉하면 유통기한을 추적해드려요</div>
+          </div>
+          <button class="toggle" onclick="this.classList.toggle('on')"></button>
+        </div>
+
+        <button class="save-btn" onclick="showToast('등록 완료!'); setTimeout(()=>goScreen('main'), 1200)">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 3c: Registration - Not Found ==================== -->
+  <div class="screen" id="screen-regNotFound">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <button class="nav-back" onclick="goScreen('main')">←</button>
+      <h1>재료 등록</h1>
+      <div style="width:32px"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="form-section">
+        <div class="not-found-banner">
+          <span class="icon">⚠️</span>
+          <span class="text">이 재료가 아직 등록되지 않았어요.<br>직접 정보를 입력해주세요!</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">이름</label>
+          <input class="form-input" type="text" placeholder="라벨에 적힌 이름을 입력해주세요">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">카테고리</label>
+          <div class="category-chips">
+            <div class="cat-chip">버번</div>
+            <div class="cat-chip">진</div>
+            <div class="cat-chip">보드카</div>
+            <div class="cat-chip">럼</div>
+            <div class="cat-chip">리큐르</div>
+            <div class="cat-chip">부재료</div>
+            <div class="cat-chip">시럽</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">도수 (%)</label>
+          <input class="form-input" type="text" placeholder="예: 40">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">구매 가격 (원)</label>
+          <input class="form-input" type="text" placeholder="선택사항">
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label-wrap">
+            <div class="toggle-label">지금 개봉하셨나요?</div>
+            <div class="toggle-desc">개봉하면 유통기한을 추적해드려요</div>
+          </div>
+          <button class="toggle" onclick="this.classList.toggle('on')"></button>
+        </div>
+
+        <button class="save-btn" onclick="showToast('등록 완료!'); setTimeout(()=>goScreen('main'), 1200)">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 4a: Detail - Opened ==================== -->
+  <div class="screen" id="screen-detailOpened">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <button class="nav-back" onclick="goScreen('main')">←</button>
+      <h1>상세 정보</h1>
+      <div style="width:32px"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="detail-hero">
+        <div class="detail-thumb">🥃</div>
+        <div>
+          <div class="detail-title">Maker's Mark</div>
+          <div class="detail-subtitle">버번 위스키 · 45%</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">기본 정보</div>
+        <div class="detail-info-grid">
+          <div class="info-box">
+            <div class="val">45%</div>
+            <div class="lbl">도수</div>
+          </div>
+          <div class="info-box">
+            <div class="val">₩45,000</div>
+            <div class="lbl">구매 가격</div>
+          </div>
+          <div class="info-box">
+            <div class="val">버번</div>
+            <div class="lbl">카테고리</div>
+          </div>
+          <div class="info-box">
+            <div class="val">3.15</div>
+            <div class="lbl">개봉일</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">잔량 상태</div>
+        <div class="quantity-selector">
+          <button class="qty-btn" onclick="selectQty(this)" id="qtyLow">
+            <span class="icon">▁</span>
+            <span class="text">부족</span>
+          </button>
+          <button class="qty-btn" onclick="selectQty(this)" id="qtyHalf">
+            <span class="icon">▄</span>
+            <span class="text">절반</span>
+          </button>
+          <button class="qty-btn active" onclick="selectQty(this)" id="qtyFull">
+            <span class="icon">█</span>
+            <span class="text">가득</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">유통기한</div>
+        <div class="expiry-card">
+          <div class="expiry-row">
+            <div class="expiry-info">
+              <div class="expiry-title">양호</div>
+              <div class="expiry-date">개봉일: 2026.3.15 · 권장소비: 해당없음</div>
+            </div>
+            <div style="font-size:20px;">✅</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <button class="delete-btn">이 재료 삭제하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 4b: Detail - Unopened ==================== -->
+  <div class="screen" id="screen-detailUnopened">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <button class="nav-back" onclick="goScreen('main')">←</button>
+      <h1>상세 정보</h1>
+      <div style="width:32px"></div>
+    </div>
+    <div class="scroll-content">
+      <div class="detail-hero">
+        <div class="detail-thumb">🧊</div>
+        <div>
+          <div class="detail-title">Cointreau</div>
+          <div class="detail-subtitle">리큐르 · 40%</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">기본 정보</div>
+        <div class="detail-info-grid">
+          <div class="info-box">
+            <div class="val">40%</div>
+            <div class="lbl">도수</div>
+          </div>
+          <div class="info-box">
+            <div class="val">₩38,000</div>
+            <div class="lbl">구매 가격</div>
+          </div>
+          <div class="info-box">
+            <div class="val">리큐르</div>
+            <div class="lbl">카테고리</div>
+          </div>
+          <div class="info-box">
+            <div class="val">미개봉</div>
+            <div class="lbl">상태</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">잔량 상태</div>
+        <div class="quantity-selector">
+          <button class="qty-btn" onclick="selectQty(this)">
+            <span class="icon">▁</span>
+            <span class="text">부족</span>
+          </button>
+          <button class="qty-btn" onclick="selectQty(this)">
+            <span class="icon">▄</span>
+            <span class="text">절반</span>
+          </button>
+          <button class="qty-btn active" onclick="selectQty(this)">
+            <span class="icon">█</span>
+            <span class="text">가득</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">개봉 상태</div>
+        <button class="detail-open-btn" onclick="this.innerHTML='✅ 개봉 완료 — 유통기한 추적이 시작됩니다'; this.style.background='#f0f7f0'; this.style.borderColor='#c8e6c9'; this.style.color='#2e7d32';">
+          🔓 지금 개봉하기
+        </button>
+        <div style="font-size:12px; color:#999; margin-top:8px; text-align:center;">개봉하면 그 시점부터 유통기한을 추적해드려요</div>
+      </div>
+
+      <div class="detail-section">
+        <button class="delete-btn">이 재료 삭제하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SCREEN 5: Insights Detail ==================== -->
+  <div class="screen" id="screen-insights">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="nav-header">
+      <button class="nav-back" onclick="goScreen('main')">←</button>
+      <h1>인사이트</h1>
+      <div style="width:32px"></div>
+    </div>
+    <div class="scroll-content">
+      <!-- Total Value -->
+      <div class="insight-detail-card">
+        <div class="insight-detail-title">내 바의 총 가치</div>
+        <div class="insight-big-value">₩320,000</div>
+        <div class="insight-big-label">12개 재료 기준</div>
+      </div>
+
+      <!-- Pie Chart -->
+      <div class="insight-detail-card">
+        <div class="insight-detail-title">카테고리별 점유율</div>
+        <div class="pie-chart-placeholder">
+          <div class="pie-ring">
+            <div class="pie-center">
+              <span class="num">12</span>
+              <span class="lbl">총 재료</span>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-left">
+              <div class="legend-dot" style="background:#555"></div>
+              <span class="legend-name">기주 (Base)</span>
+            </div>
+            <span class="legend-right">4개 · 30%</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-left">
+              <div class="legend-dot" style="background:#999"></div>
+              <span class="legend-name">리큐르</span>
+            </div>
+            <span class="legend-right">3개 · 20%</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-left">
+              <div class="legend-dot" style="background:#bbb"></div>
+              <span class="legend-name">부재료</span>
+            </div>
+            <span class="legend-right">3개 · 20%</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-left">
+              <div class="legend-dot" style="background:#ddd"></div>
+              <span class="legend-name">시럽</span>
+            </div>
+            <span class="legend-right">2개 · 30%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recipe stat -->
+      <div class="recipe-stat-card">
+        <div class="recipe-stat-icon">🍹</div>
+        <div>
+          <div class="recipe-stat-num">8개</div>
+          <div class="recipe-stat-lbl">지금 만들 수 있는 칵테일</div>
+        </div>
+      </div>
+
+      <!-- Expiry alerts -->
+      <div class="insight-detail-card">
+        <div class="insight-detail-title">유통기한 임박 재료</div>
+        <div style="margin-top:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #f0f0f0;">
+            <div>
+              <div style="font-size:14px; font-weight:600; color:#1a1a1a;">🍋 레몬즙</div>
+              <div style="font-size:12px; color:#999; margin-top:2px;">개봉일: 3.20</div>
+            </div>
+            <span style="font-size:16px; font-weight:800; color:#e74c3c;">D-2</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0;">
+            <div>
+              <div style="font-size:14px; font-weight:600; color:#1a1a1a;">🫙 바닐라 시럽</div>
+              <div style="font-size:12px; color:#999; margin-top:2px;">개봉일: 3.8</div>
+            </div>
+            <span style="font-size:16px; font-weight:800; color:#e67e22;">D-12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<script>
+  // Screen navigation
+  function goScreen(id) {
+    hideSheet();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById('screen-' + id);
+    if (target) target.classList.add('active');
+
+    // Update guide panel
+    const map = {
+      'main': 0, 'regScan': 2, 'regManual': 3, 'regNotFound': 4,
+      'detailOpened': 5, 'detailUnopened': 6, 'insights': 7
+    };
+    document.querySelectorAll('.guide-item').forEach((item, i) => {
+      item.classList.toggle('current', i === (map[id] ?? 0));
+    });
+  }
+
+  // Bottom sheet
+  function showSheet() {
+    document.getElementById('sheetOverlay').classList.add('active');
+    document.getElementById('addSheet').classList.add('active');
+    // Update guide
+    document.querySelectorAll('.guide-item').forEach((item, i) => {
+      item.classList.toggle('current', i === 1);
+    });
+  }
+  function hideSheet() {
+    document.getElementById('sheetOverlay').classList.remove('active');
+    document.getElementById('addSheet').classList.remove('active');
+  }
+
+  // Filter chips
+  function activateChip(el) {
+    el.parentElement.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Quantity selector
+  function selectQty(el) {
+    el.parentElement.querySelectorAll('.qty-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // Sort buttons
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      this.parentElement.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // Category chips
+  document.querySelectorAll('.cat-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      this.parentElement.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // Toast
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+</script>
+
+</body>
+</html>
